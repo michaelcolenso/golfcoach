@@ -1,0 +1,48 @@
+<!-- In your static/index.html or templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- ... Other head elements ... -->
+    <title>Video Upload</title>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Container for your application -->
+    <div class="container mx-auto p-8">
+        <h1 class="text-4xl font-bold mb-8">Upload Your Golf Swing Video</h1>
+        <!-- Form for video upload -->
+        <form id="upload-form">
+            <input type="file" id="video-file" name="video" accept="video/*" required>
+            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Upload Video
+            </button>
+        </form>
+        <!-- Container for response messages -->
+        <div id="upload-response" class="mt-4"></div>
+    </div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            var formData = new FormData();
+            var videoFile = document.getElementById('video-file').files[0];
+            formData.append('video', videoFile);
+
+            // Make an AJAX POST request to the Flask backend
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle response here
+                document.getElementById('upload-response').textContent = JSON.stringify(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+
+</body>
+</html>
