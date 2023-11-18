@@ -25,11 +25,13 @@
             </div>
         </form>
         <!-- Container for response messages -->
-        <div id="upload-response" class="mt-4"></div>
+        <div id="upload-response" class="mt-4 p-4 bg-white text-gray-800 rounded shadow"></div>
+        <div id="response-images" class="mt-4 p-4 bg-white text-gray-800 rounded shadow"></div>    
+    
     </div>
 
     <script>
-        document.getElementById('upload-form').addEventListener('submit', function(event) {
+        document.getElementById('upload-form').addEventListener('submit', function (event) {
             event.preventDefault();
             var formData = new FormData();
             var videoFile = document.getElementById('video-file').files[0];
@@ -40,14 +42,34 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
-                // Handle response here
-                document.getElementById('upload-response').textContent = JSON.stringify(data);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
+                .then(response => response.json())
+                .then(data => {
+                    // Handle response here
+                    console.log('Success:', data);
+                    // Iterate over each base64 string in data.selected_frames
+                    data.selected_frames.forEach(base64_string => {
+                    // Create an img element
+                    var img = document.createElement('img');
+
+                    // Set the src attribute to a Data URL that includes the base64 string
+                    // Adjust the MIME type ('image/jpeg' in this example) as needed
+                    img.src = 'data:image/jpeg;base64,' + base64_string;
+                    console.log(img.src);
+                    // Add Tailwind CSS classes to style the image
+                    img.className = 'm-4 shadow-lg max-w-xs';
+
+
+                    // Append the img element to the upload-response div
+                    document.getElementById('response-images').appendChild(img);
+                    });
+                    var responseText = document.createElement('p');
+                    responseText.textContent = JSON.stringify(data);
+                    responseText.className = 'font-bold text-lg';  // Add Tailwind CSS classes here
+                    document.getElementById('upload-response').textContent = JSON.stringify(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
         });
     </script>
 

@@ -10,6 +10,7 @@ app = Flask(__name__, static_folder='static')
 # Set the OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
@@ -46,7 +47,10 @@ def upload_video():
         frame_count = len(frames)  # Count the number of frames extracted
         
         # Call OpenAI API with the extracted frames
-        openai_response = call_openai_api(frames)
+       
+        selected_frames = select_frames_uniformly(frames, max_images=5)  # Adjust max_images as needed
+
+        openai_response = call_openai_api(selected_frames)
         
         if openai_response is not None:
             # Access the 'choices' attribute only if the response is not None
@@ -64,6 +68,7 @@ def upload_video():
 
     # Return the response to the client
     return jsonify({
+        'selected_frames': selected_frames,
         'message': 'File uploaded and processed successfully',
         'filename': filename,
         'description': description,
@@ -84,25 +89,40 @@ def extract_frames(video_path):
     print(len(base64Frames), "frames read.")
     return base64Frames
 
-def call_openai_api(base64_frames):
+def select_frames_uniformly(base64_frames, max_images):
+    total_frames = len(base64_frames)
+    
+    # Calculate the step to get a uniform distribution of frames throughout the video
+    step = max(1, total_frames // max_images)  # Ensure step is at least 1
+    print("Step:", step)
+    
+    # Select frames using the calculated step, up to the max_images
+    selected_frames = base64_frames[0::step][:max_images]
+    
+    print(len(selected_frames), "frames selected.")
+    return selected_frames
+
+def call_openai_api(selected_frames):
     # Construct the payload with the frames as base64 encoded images
+    print("Calling OpenAI API...")
     PROMPT_MESSAGES = [
         {
             "role": "user",
             "content": [
                 "I have provided a number of images from a video of a golf swing. Review each image and determine what element of the golf swing it is. Using your knowledge of golf, provide useful feedback to the golfer as if you were the coach",
-                *map(lambda x: {"image": x, "resize": 768}, base64_frames[1::90]),
+                *map(lambda x: {"image": x, "resize": 512}, selected_frames),
             ],
         },
     ]
     params = {
         "model": "gpt-4-vision-preview",
         "messages": PROMPT_MESSAGES,
-        "max_tokens": 1000,
+        "max_tokens": 500,
     }
 
     try:
         result = openai.ChatCompletion.create(**params)
+        print (result)
         return result
     except Exception as e:
         print(f"An error occurred: {e}")
