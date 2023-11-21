@@ -8,69 +8,83 @@
 <body class="bg-gray-100">
 
     <!-- Container for your application -->
-    <div class="container mx-auto p-6">
-        <h1 class="text-4xl font-bold mb-8">Upload Your Golf Swing Video</h1>
-        <!-- Form for video upload -->
-        <form id="upload-form" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="video-file">
-                    Choose a video
-                </label>
-                <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="file" id="video-file" name="video" accept="video/*" required>
+    <div class="container mx-auto p-6 flex">
+            <!-- Form for video upload -->
+                <form id="upload-form" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="video-file">
+                            Choose a video
+                        </label>
+                        <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="file" id="video-file" name="video" accept="video/*" required>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
+                            Upload Video
+                        </button>
+                    </div>
+                </form>
+    
+            <!-- Video player -->
+            <div class="mb-4 ml-4">
+                <video id="videoPlayer" controls style=></video>
             </div>
-            <div class="flex items-center justify-between">
-                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
-                    Upload Video
-                </button>
-            </div>
-        </form>
+        </div>
+    
         <!-- Container for response messages -->
         <div id="upload-response" class="mt-4 p-4 bg-white text-gray-800 rounded shadow"></div>
         <div id="response-images" class="mt-4 p-4 bg-white text-gray-800 rounded shadow"></div>    
-    
     </div>
-
     <script>
-        document.getElementById('upload-form').addEventListener('submit', function (event) {
-            event.preventDefault();
-            var formData = new FormData();
-            var videoFile = document.getElementById('video-file').files[0];
-            formData.append('video', videoFile);
+        document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('upload-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var formData = new FormData();
+        var videoFile = document.getElementById('video-file').files[0];
+        formData.append('video', videoFile);
 
-            // Make an AJAX POST request to the Flask backend
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
-                .then(response => response.json())
-                .then(data => {
-                    // Handle response here
-                    console.log('Success:', data);
-                    // Iterate over each base64 string in data.selected_frames
-                    data.selected_frames.forEach(base64_string => {
-                    // Create an img element
-                    var img = document.createElement('img');
+        // Create a URL for the video file and play it immediately
+        var videoUrl = URL.createObjectURL(videoFile);
+        var videoPlayer = document.getElementById('videoPlayer');
+        videoPlayer.style.display = 'block';
+        videoPlayer.src = videoUrl;
+        videoPlayer.muted = true; // Mute the video player
+        videoPlayer.loop = true; // Enable video looping
+        videoPlayer.play();
 
-                    // Set the src attribute to a Data URL that includes the base64 string
-                    // Adjust the MIME type ('image/jpeg' in this example) as needed
-                    img.src = 'data:image/jpeg;base64,' + base64_string;
-                    console.log(img.src);
-                    // Add Tailwind CSS classes to style the image
-                    img.className = 'm-4 shadow-lg max-w-xs';
+        // Make an AJAX POST request to the Flask backend
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Handle response here
+            console.log('Success:', data);
+            // Iterate over each base64 string in data.selected_frames
+            data.selected_frames.forEach(base64_string => {
+                // Create an img element
+                var img = document.createElement('img');
 
+                // Set the src attribute to a Data URL that includes the base64 string
+                // Adjust the MIME type ('image/jpeg' in this example) as needed
+                img.src = 'data:image/jpeg;base64,' + base64_string;
+                console.log(img.src);
+                // Add Tailwind CSS classes to style the image
+                img.className = 'm-4 shadow-lg max-w-xs';
 
-                    // Append the img element to the upload-response div
-                    document.getElementById('response-images').appendChild(img);
-                    });
-                    var responseText = document.createElement('p');
-                    responseText.textContent = JSON.stringify(data);
-                    responseText.className = 'font-bold text-lg';  // Add Tailwind CSS classes here
-                    document.getElementById('upload-response').textContent = JSON.stringify(data);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
+                // Append the img element to the upload-response div
+                document.getElementById('response-images').appendChild(img);
+            });
+            var responseText = document.createElement('p');
+            responseText.textContent = JSON.stringify(data);
+            responseText.className = 'font-bold text-lg';  // Add Tailwind CSS classes here
+            document.getElementById('upload-response').textContent = JSON.stringify(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
         });
+    });
+});
     </script>
 
 </body>
