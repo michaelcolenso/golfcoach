@@ -32,15 +32,6 @@ def select_frames_uniformly(base64_frames, max_images):
     return selected_frames
 
 def create_thumbnail_sequence(selected_frames):
-    """
-    Create a sequence of thumbnail frames from a list of base64 encoded frames.
-
-    Args:
-        selected_frames (list): A list of base64 encoded frames.
-
-    Returns:
-        Image: The thumbnail sequence as a webp image.
-    """
     # Create a list to store thumbnail frames
     thumbnails = []
 
