@@ -3,7 +3,7 @@
 <head>
     <!-- ... Other head elements ... -->
     <title>Video Upload</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.16/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{url_for('static',filename='dist/css/output.css')}}">
 </head>
 <body class="bg-gray-100">
 
@@ -92,21 +92,21 @@
             console.log('Success:', data.feedback);
             // Iterate over each base64 string in data.selected_frames
             data.selected_frames.forEach((base64_string, index) => {
-            var img = document.createElement('img');
-            img.src = 'data:image/jpeg;base64,' + base64_string;
-            img.className = 'm-4 shadow-lg max-w-xs';
+        var img = document.createElement('img');
+        img.src = 'data:image/jpeg;base64,' + base64_string;
+        img.className = 'm-4 shadow-lg max-w-xs';
 
-            // Create a new paragraph element for the feedback
-            var feedback = document.createElement('p');
-            // Set the text content to the feedback associated with the current image
-            feedback.textContent = data.feedback[0]['image_' + (index + 1)];
-            feedback.className = 'font-bold text-lg';
+        // Create a new paragraph element for the feedback
+        var feedback = document.createElement('p');
+        // Set the text content to the feedback associated with the current image
+        feedback.textContent = data.feedback[0]['image_' + (index + 1)];
+        feedback.className = 'font-bold text-lg';
 
-            // Append the img and feedback elements to the upload-response div
-            var responseImages = document.getElementById('response-images');
-            responseImages.appendChild(img);
-            responseImages.appendChild(feedback);
-        });
+        // Append the img and feedback elements to the upload-response div
+        var responseImages = document.getElementById('response-images');
+        responseImages.appendChild(img);
+        responseImages.appendChild(feedback);
+    });
             
         })
         .catch(error => {
