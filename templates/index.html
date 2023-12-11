@@ -9,7 +9,6 @@
 
 <!-- Main container with grid layout -->
 <div class="container mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-
     <!-- Box 1: Form for video upload -->
     <div class="bg-white shadow-md rounded px-8 pt-6 pb-8">
         <form id="upload-form">
@@ -46,6 +45,7 @@
     <div id="upload-response" class="bg-white shadow-md rounded px-8 pt-6 pb-8">
     </div>
     <div id="response-images" class="bg-white shadow-md rounded px-8 pt-6 pb-8">
+        
     </div>
 
 </div>
@@ -89,24 +89,25 @@
         .then(response => response.json())
         .then(data => {
             // Handle response here
-            console.log('Success:', data);
+            console.log('Success:', data.feedback);
             // Iterate over each base64 string in data.selected_frames
-            data.selected_frames.forEach(base64_string => {
-                var img = document.createElement('img');
-                // Set the src attribute to a Data URL that includes the base64 string
-                // Adjust the MIME type ('image/jpeg' in this example) as needed
-                img.src = 'data:image/jpeg;base64,' + base64_string;
-                console.log(img.src);
-                // Add Tailwind CSS classes to style the image
-                img.className = 'm-4 shadow-lg max-w-xs';
+            data.selected_frames.forEach((base64_string, index) => {
+            var img = document.createElement('img');
+            img.src = 'data:image/jpeg;base64,' + base64_string;
+            img.className = 'm-4 shadow-lg max-w-xs';
 
-                // Append the img element to the upload-response div
-                document.getElementById('response-images').appendChild(img);
-            });
-            var responseText = document.createElement('p');
-            responseText.textContent = JSON.stringify(data);
-            responseText.className = 'font-bold text-lg';  // Add Tailwind CSS classes here
-            document.getElementById('upload-response').textContent = JSON.stringify(data);
+            // Create a new paragraph element for the feedback
+            var feedback = document.createElement('p');
+            // Set the text content to the feedback associated with the current image
+            feedback.textContent = data.feedback[0]['image_' + (index + 1)];
+            feedback.className = 'font-bold text-lg';
+
+            // Append the img and feedback elements to the upload-response div
+            var responseImages = document.getElementById('response-images');
+            responseImages.appendChild(img);
+            responseImages.appendChild(feedback);
+        });
+            
         })
         .catch(error => {
             console.error('Error:', error);

@@ -1,6 +1,7 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, render_template
 from frame_utils import extract_frames, select_frames_uniformly
 from api_utils import call_openai_api
+from response_parser import parse_golf_text
 import cv2
 import openai
 import base64
@@ -15,7 +16,8 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.route('/')
 def index():
-    return send_from_directory(app.static_folder, 'index.html')
+    context = {}
+    return render_template('index.html', **context)
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
@@ -57,6 +59,7 @@ def upload_video():
         if openai_response is not None:
             # Access the 'choices' attribute only if the response is not None
             description = openai_response.choices[0].message.content
+            image_feedback = parse_golf_text(description)
         else:
             # If the response is None, set an appropriate description
             description = "Failed to call OpenAI API or process the response"
@@ -69,13 +72,15 @@ def upload_video():
             pass
 
     # Return the response to the client
-    return jsonify({
+    context = {
         'selected_frames': selected_frames,
         'message': 'File uploaded and processed successfully',
         'filename': filename,
-        'description': description,
+        'feedback': image_feedback,
         'frame_count': frame_count  # Include the frame count in the response
-    })
+    }
+
+    return context;
 
 
 if __name__ == '__main__':
