@@ -1,5 +1,13 @@
 {
-  "devDependencies": {
-    "tailwindcss": "^3.3.6"
-  }
+  "name": "golfcoach",
+  "version": "1.0.0",
+  "description": "A golf coaching application",
+  "scripts": {
+    "dev": "npm run dev-svelte && flask --app app --debug run",
+    "dev-svelte": "cd client && npm install && npm run dev",
+    "build-svelte": "cd client && npm install && npm run build",
+    "build": "npm run build-svelte && flask --app app --debug run"
+  },
+  "author": "Michael Colenso",
+  "license": "MIT"
 }

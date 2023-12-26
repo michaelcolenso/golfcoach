@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from frame_utils import extract_frames, select_frames_uniformly
 from api_utils import call_openai_api
 from response_parser import parse_golf_text
@@ -9,15 +10,20 @@ import os
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__, static_folder='static')
+CORS(app)
 
 # Set the OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 @app.route('/')
-def index():
-    context = {}
-    return render_template('index.html', **context)
+def client():
+    return send_from_directory('client/public', 'index.html')
+
+# Route to add static files (CSS and JS)
+@app.route("/<path:path>")
+def base(path):
+    return send_from_directory('client/public', path)
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
@@ -80,8 +86,8 @@ def upload_video():
         'frame_count': frame_count  # Include the frame count in the response
     }
 
-    return context;
+    return jsonify(context);
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)

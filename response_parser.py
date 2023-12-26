@@ -1,18 +1,20 @@
 import re
-def parse_golf_text(text):
-    # Splitting the text by number followed by a period
-    sections = re.split(r'\n\n(\d+)\. ', text)
-    sections = sections[1:]  # The first element is empty or irrelevant
 
+def parse_golf_text(text):
+    # Splitting the text by occurrences of two newlines followed by a number and a period
+    pattern = re.compile(r'\n\n(\d+)\. ')
+    sections = pattern.split(text.strip())
+    
+    # Initialize an empty dictionary for parsed data
     parsed_data = {}
-    for i in range(0, len(sections), 2):
-        image_num = sections[i].strip()
-        description = sections[i + 1].strip().split('\n\n')[0]  # Splitting in case overall feedback is in the same section
+    
+    # Skip the first split as it is before the first number and is not needed
+    for index in range(1, len(sections), 2):
+        image_num = sections[index].strip()  # Get the image number
+        description = sections[index + 1].split('\n\n')[0].strip()  # Get the description up to the next double newline
         parsed_data[f'image_{image_num}'] = description
 
-    # Assuming the overall feedback is after the last image description
-    overall_feedback = sections[-1].strip().split('\n\n')[-1]
-    
+    # Extract overall feedback, if present, after the last numbered section
+    overall_feedback = sections[-1].split('\n\n')[-1].strip() if len(sections) > 1 else ""
+
     return parsed_data, overall_feedback
-
-
