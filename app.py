@@ -18,7 +18,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.route('/')
 def client():
-    return send_from_directory('client/public', 'index.html')
+    return send_from_directory('client', 'app.html')
 
 # Route to add static files (CSS and JS)
 @app.route("/<path:path>")
