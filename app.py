@@ -9,7 +9,7 @@ import base64
 import os
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder='client/public')
 CORS(app)
 
 # Set the OpenAI API key
@@ -51,9 +51,13 @@ def upload_video():
         # Handle exceptions that could occur during file save
         return jsonify({'error': 'Failed to save file', 'exception': str(e)}), 500
 
+    # Retrieve start time and duration from the request
+    start_time = request.form.get('start_time', default=0, type=float)
+    duration = request.form.get('duration', default=3, type=float)
+
     try:
         # Process the video and extract frames
-        frames = extract_frames(filepath)
+        frames = extract_frames(filepath, start_time, duration)
         frame_count = len(frames)  # Count the number of frames extracted
         
         # Call OpenAI API with the extracted frames

@@ -5,19 +5,26 @@ import cv2
 import base64
 import math
 
-def extract_frames(video_path):
+def extract_frames(video_path, start_time=0, duration=3):
     video = cv2.VideoCapture(video_path)
+    
+    fps = video.get(cv2.CAP_PROP_FPS)  # Get the frame rate of the video
+    start_frame = int(start_time * fps)  # Calculate the starting frame
+    end_frame = start_frame + int(duration * fps)  # Calculate the ending frame
+
+    video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)  # Set the start frame
+
     base64Frames = []
     while video.isOpened():
         success, frame = video.read()
-        if not success:
+        if not success or video.get(cv2.CAP_PROP_POS_FRAMES) > end_frame:
             break
         _, buffer = cv2.imencode(".jpg", frame)
         base64Frames.append(base64.b64encode(buffer).decode("utf-8"))
 
     video.release()
-    app.logger.info(f"{len(base64Frames)} frames read.")
     return base64Frames
+
 
 def select_frames_uniformly(base64_frames, max_images):
     total_frames = len(base64_frames)
