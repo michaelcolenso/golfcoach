@@ -5,7 +5,8 @@ import cv2
 import base64
 import math
 
-def extract_frames(video_path, start_time=0, duration=3):
+def extract_frames(video_path, start_time, duration=3):
+    app.logger.info(f"Extracting frames from {video_path} starting at {start_time} for {duration} seconds")
     video = cv2.VideoCapture(video_path)
     
     fps = video.get(cv2.CAP_PROP_FPS)  # Get the frame rate of the video

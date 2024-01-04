@@ -54,10 +54,12 @@ def upload_video():
     # Retrieve start time and duration from the request
     start_time = request.form.get('start_time', default=0, type=float)
     duration = request.form.get('duration', default=3, type=float)
+    app.logger.info(request.form)
 
     try:
         # Process the video and extract frames
         frames = extract_frames(filepath, start_time, duration)
+        # app.logger.info(f"START TIME: {start_time}, DURATION: {duration}")
         frame_count = len(frames)  # Count the number of frames extracted
         
         # Call OpenAI API with the extracted frames
