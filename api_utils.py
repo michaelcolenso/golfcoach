@@ -1,14 +1,12 @@
-from flask import current_app as app
 import openai
-import os
-import base64
+from flask import current_app as app
+import logging
 
 def configure_openai_api():
     openai.api_key = app.config['OPENAI_API_KEY']
 
 def call_openai_api(selected_frames):
-    # Construct the payload with the frames as base64 encoded images
-    print("Calling OpenAI API...")
+    app.logger.info("Calling OpenAI API...")
     PROMPT_MESSAGES = [
         {
             "role": "user",
@@ -19,15 +17,24 @@ def call_openai_api(selected_frames):
         },
     ]
     params = {
-        "model": "gpt-4-vision-preview",
+        "model": "gpt-4o",
         "messages": PROMPT_MESSAGES,
-        "max_tokens": 1000,
+        "max_tokens": 2500,
     }
 
     try:
         result = openai.ChatCompletion.create(**params)
-        print (result)
+        app.logger.info("OpenAI API call successful")
         return result
+    except openai.error.APIError as e:
+        app.logger.error(f"OpenAI API error: {str(e)}")
+        raise
+    except openai.error.AuthenticationError as e:
+        app.logger.error(f"OpenAI authentication error: {str(e)}")
+        raise
+    except openai.error.RateLimitError as e:
+        app.logger.error(f"OpenAI rate limit error: {str(e)}")
+        raise
     except Exception as e:
-        print(f"An error occurred: {e}")
-        return None
+        app.logger.error(f"Unexpected error in OpenAI API call: {str(e)}")
+        raise

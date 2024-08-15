@@ -1,22 +1,24 @@
 <script>
-  import { onMount, setContext } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import VideoUploader from '$lib/VideoUploader.svelte';
   import VideoPlayer from '$lib/VideoPlayer.svelte';
-  import VideoSlider from '$lib/VideoSlider.svelte';
   import UploadButton from '$lib/UploadButton.svelte';
+  import { fly } from 'svelte/transition';
+  import { writable } from 'svelte/store';
+  import { resultsStore } from '$lib/stores/resultsStore';
+
+
+
+  let startTime;
+  let maxDuration = '';
+  let currentTime = 0;
+  let videoFile;
+  let videoUrl = '';
+  let isLoading = writable(false);
+  let errorMessage = writable('');
 
   
-  let startTime;
-  let maxDuration;
-  let currentTime = 0;
-  let videoFile = null;
-  let videoUrl = '';
-  let frameFeedback = null;
-  let overallFeedback = null;
-  let selectedFrames = [];
-  let frameCount = 0;
-  let errorMessage = '';
-
   onMount(() => {
     // This function will be executed when the component is mounted
   });
@@ -24,91 +26,82 @@
   function handleFileSelected(event) {
     videoFile = event.detail.file;
     videoUrl = URL.createObjectURL(videoFile);
-    // console.log("File selected in parent component:", videoFile);
   }
 
   function setDuration(duration) {
     maxDuration = duration;
   }
-  
+
   function handleTimeChange(event) {
     currentTime = event.detail; 
   }
 
   async function handleUpload() {
-    // console.log('handleUpload function called', videoFile); // Add this line
-    // Check if a file is selected
-    if (!videoFile) {
-      alert('Please select a file to upload.');
-      return;
-    }
+    isLoading.set(true);
+    errorMessage.set('');
 
-    // Create FormData and append the file
-    const formData = new FormData();
-    formData.append('video', videoFile);
-    formData.append('start_time', currentTime.toString());
-
-    // // Log out the contents of formData
-    // for (let [key, value] of formData.entries()) {
-    //   console.log(key, value);
-    // }
     try {
-      // Send the request to the Flask backend
+      const formData = new FormData();
+      formData.append('video', videoFile);
+      formData.append('start_time', currentTime.toString());
+      formData.append('duration', '3'); // You might want to make this configurable
+
       const response = await fetch('http://127.0.0.1:5000/upload', {
         method: 'POST',
         body: formData,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log(result);
-        frameFeedback = result.feedback[0];
-        overallFeedback = result.feedback[1];
-        selectedFrames = result.selected_frames;
-        frameCount = result.frame_count;
-      } else {
-        throw new Error(`Upload failed: ${response.status}`);
+      if (!response.ok) {
+        throw new Error('Upload failed');
       }
+
+      const result = await response.json();
+      console.log('Upload successful:', result);
+      
+      // Store the results
+      resultsStore.set(result);
+      
+      // Navigate to the results page
+      goto('/results');
     } catch (error) {
-      errorMessage = error.message;
+      console.error('Error uploading video:', error);
+      errorMessage.set('Failed to upload video. Please try again.');
+    } finally {
+      isLoading.set(false);
     }
   }
-
-
 </script>
 
-<div class="container mx-auto p-8 space-y-8">
-
-  <VideoUploader on:fileselected={handleFileSelected} on:upload={handleUpload} />
-  
-  <VideoPlayer {videoUrl} bind:currentTime bind:maxDuration />
-  
-  <VideoSlider {maxDuration} bind:currentTime on:timechange={handleTimeChange} />
-
-  <UploadButton videoFile={videoFile} on:upload={handleUpload} />
-
-  {#if errorMessage}
-    <p class="error">{errorMessage}</p>
+<div class="container w-11/12 h-11/12 mx-auto p-4 md:p-8 space-y-4 md:space-y-8">
+  {#if !videoUrl}
+    <VideoUploader on:fileselected={handleFileSelected} on:upload={handleUpload} />
   {/if}
-  
-  {#if overallFeedback}
-    <div class="feedback">
-      <h3>Overall Feedback</h3>
-      <p>{overallFeedback}</p>
+  {#if $isLoading}
+    <div class="flex justify-center loading">
+      Loading...
     </div>
-  {/if}
-  
-  {#if selectedFrames.length > 0}
-  <section class="grid grid-cols-2 md:grid-cols-3 gap-4">
-    <h3>Selected Frames ({frameCount})</h3>
-      {#each selectedFrames as frame, index (frame)}
-        <div class="frame">
-          <img class="h-auto max-w-full rounded-lg" src={`data:image/jpeg;base64,${frame}`} alt={`Frame ${index + 1}`} />
-          {#if frameFeedback[`image_${index + 1}`]}
-            <p class="caption">{frameFeedback[`image_${index + 1}`]}</p>
-          {/if}
+  {:else if videoUrl}
+    <div class="flex justify-center">
+      <div class="w-1/3">
+        <div class="videoplayer" in:fly={{x: 0, y: 0, duration: 1000}} out:fly={{x: -200, y: 0, duration: 500}}>
+          <h3 class="text-lg font-semibold">Video</h3>
+          <p class="text-xs">{currentTime} / {maxDuration}</p>
+          <VideoPlayer {videoUrl} bind:currentTime bind:maxDuration />
         </div>
-      {/each}
-  </section>
+      </div>
+    </div>
+    <UploadButton videoFile={videoFile} on:upload={handleUpload} />
+  {/if}
+  {#if $errorMessage}
+    <p class="text-red-500">{$errorMessage}</p>
   {/if}
 </div>
+
+<style>
+  .container {
+    padding: 1rem;
+  }
+  .loading {
+    font-size: 1.5rem;
+  }
+</style>
