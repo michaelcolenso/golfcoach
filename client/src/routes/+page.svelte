@@ -72,29 +72,35 @@
   }
 </script>
 
-<div class="container w-11/12 h-11/12 mx-auto p-4 md:p-8 space-y-4 md:space-y-8">
-  {#if !videoUrl}
-    <VideoUploader on:fileselected={handleFileSelected} on:upload={handleUpload} />
-  {/if}
-  {#if $isLoading}
-    <div class="flex justify-center loading">
-      Loading...
-    </div>
-  {:else if videoUrl}
-    <div class="flex justify-center">
-      <div class="w-1/3">
-        <div class="videoplayer" in:fly={{x: 0, y: 0, duration: 1000}} out:fly={{x: -200, y: 0, duration: 500}}>
-          <h3 class="text-lg font-semibold">Video</h3>
-          <p class="text-xs">{currentTime} / {maxDuration}</p>
-          <VideoPlayer {videoUrl} bind:currentTime bind:maxDuration />
+<div class="hero bg-base-200">
+  <div class="hero-content text-center">
+    <div class="">
+      <h1 class="text-5xl font-bold">Golfcoach</h1>
+      {#if !videoUrl}
+      <VideoUploader on:fileselected={handleFileSelected} on:upload={handleUpload} />
+    {/if}
+    {#if $isLoading}
+      <div class="flex justify-center loading">
+        Loading...
+      </div>
+    {:else if videoUrl}
+      <div class="flex justify-center">
+        <div class="">
+          <div class="videoplayer" in:fly={{x: 0, y: 0, duration: 1000}} out:fly={{x: -200, y: 0, duration: 500}}>
+            <h3 class="text-lg font-semibold">Video</h3>
+            <p class="text-xs">{currentTime} / {maxDuration}</p>
+            <VideoPlayer {videoUrl} bind:currentTime bind:maxDuration />
+          </div>
         </div>
       </div>
+      <UploadButton videoFile={videoFile} on:upload={handleUpload} />
+    {/if}
+    {#if $errorMessage}
+      <p class="text-red-500">{$errorMessage}</p>
+    {/if}
+      <button class="btn btn-primary">Get Started</button>
     </div>
-    <UploadButton videoFile={videoFile} on:upload={handleUpload} />
-  {/if}
-  {#if $errorMessage}
-    <p class="text-red-500">{$errorMessage}</p>
-  {/if}
+  </div>
 </div>
 
 <style>

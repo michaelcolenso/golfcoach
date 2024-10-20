@@ -6,7 +6,6 @@
     let results;
     let isLoading = true;
     let error = null;
-    let swingImages = [];
   
     onMount(() => {
       const unsubscribe = resultsStore.subscribe(value => {
@@ -14,24 +13,6 @@
           results = value;
           isLoading = false;
           console.log('Results:', results);
-          
-          // Process the thumbnail into individual images
-          if (results.thumbnail) {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const ctx = canvas.getContext('2d');
-              const frameWidth = img.width / 6; // Assuming 6 frames
-              
-              for (let i = 0; i < 6; i++) {
-                canvas.width = frameWidth;
-                canvas.height = img.height;
-                ctx.drawImage(img, i * frameWidth, 0, frameWidth, img.height, 0, 0, frameWidth, img.height);
-                swingImages[i] = canvas.toDataURL();
-              }
-            };
-            img.src = `data:image/png;base64,${results.thumbnail}`;
-          }
         } else {
           goto('/');
         }
@@ -52,21 +33,19 @@
         <div class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Swing Analysis</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {#each Object.entries(results.feedback.swing_analysis) as [imageKey, feedback], index}
+                {#each results.selected_frames as frame, index}
                     <div class="border p-4 rounded-lg flex flex-col md:flex-row items-center">
-                        {#if swingImages[index]}
-                            <img src={swingImages[index]} alt="Swing frame {index + 1}" class="w-full md:w-1/2 mb-4 md:mb-0 md:mr-4" />
-                        {/if}
+                        <img src={`data:image/jpeg;base64,${frame}`} alt="Swing frame {index + 1}" class="w-full md:w-1/2 mb-4 md:mb-0 md:mr-4" />
                         <div>
                             <h3 class="text-lg font-medium mb-2">Frame {index + 1}</h3>
-                            <p>{feedback}</p>
+                            <p>{results.feedback.swing_analysis?.[`image_${index + 1}`] || 'No feedback available for this frame.'}</p>
                         </div>
                     </div>
                 {/each}
             </div>
         </div>
 
-        {#if results.feedback.recommendations && results.feedback.recommendations.length > 0}
+        {#if results.feedback?.recommendations && results.feedback.recommendations.length > 0}
             <div class="mb-8">
                 <h2 class="text-xl font-semibold mb-4">Recommendations</h2>
                 <ul class="list-disc pl-5">
@@ -77,7 +56,7 @@
             </div>
         {/if}
 
-        {#if results.feedback.overall_feedback}
+        {#if results.feedback?.overall_feedback}
             <div class="mb-8">
                 <h2 class="text-xl font-semibold mb-4">Overall Feedback</h2>
                 <p>{results.feedback.overall_feedback}</p>
