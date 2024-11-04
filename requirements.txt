@@ -1,0 +1,7 @@
+Flask
+flask-cors
+openai
+opencv-python-headless
+Pillow
+numpy
+Werkzeug
