@@ -1,20 +1,32 @@
 import re
 
 def parse_golf_text(text):
-    # Splitting the text by occurrences of two newlines followed by a number and a period
     pattern = re.compile(r'\n\n(\d+)\. ')
     sections = pattern.split(text.strip())
     
-    # Initialize an empty dictionary for parsed data
     parsed_data = {}
+    swing_phases = {}
+    recommendations = []
     
-    # Skip the first split as it is before the first number and is not needed
     for index in range(1, len(sections), 2):
-        image_num = sections[index].strip()  # Get the image number
-        description = sections[index + 1].split('\n\n')[0].strip()  # Get the description up to the next double newline
-        parsed_data[f'image_{image_num}'] = description
+        image_num = sections[index].strip()
+        content = sections[index + 1].strip()
+        
+        phase_match = re.search(r'^(Setup|Backswing|Downswing|Impact|Follow-through):', content)
+        if phase_match:
+            phase = phase_match.group(1).lower().replace('-', '_')
+            swing_phases[phase] = content[len(phase_match.group(0)):].strip()
+        else:
+            parsed_data[f'image_{image_num}'] = content
+        
+        rec_matches = re.findall(r'Recommendation:?\s*(.*?)(?:\n|$)', content, re.IGNORECASE)
+        recommendations.extend(rec_matches)
 
-    # Extract overall feedback, if present, after the last numbered section
     overall_feedback = sections[-1].split('\n\n')[-1].strip() if len(sections) > 1 else ""
 
-    return parsed_data, overall_feedback
+    return {
+        'swing_analysis': parsed_data,
+        'swing_phases': swing_phases,
+        'recommendations': recommendations,
+        'overall_feedback': overall_feedback
+    }
