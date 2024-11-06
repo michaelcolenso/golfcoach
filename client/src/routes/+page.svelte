@@ -98,7 +98,6 @@
     {#if $errorMessage}
       <p class="text-red-500">{$errorMessage}</p>
     {/if}
-      <button class="btn btn-primary">Get Started</button>
     </div>
   </div>
 </div>

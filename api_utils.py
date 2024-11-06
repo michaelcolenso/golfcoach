@@ -23,18 +23,10 @@ def call_openai_api(selected_frames):
     }
 
     try:
-        result = openai.ChatCompletion.create(**params)
+        result = openai.chat.completions.create(**params)
         app.logger.info("OpenAI API call successful")
         return result
-    except openai.error.APIError as e:
-        app.logger.error(f"OpenAI API error: {str(e)}")
-        raise
-    except openai.error.AuthenticationError as e:
-        app.logger.error(f"OpenAI authentication error: {str(e)}")
-        raise
-    except openai.error.RateLimitError as e:
-        app.logger.error(f"OpenAI rate limit error: {str(e)}")
-        raise
+   
     except Exception as e:
         app.logger.error(f"Unexpected error in OpenAI API call: {str(e)}")
         raise
