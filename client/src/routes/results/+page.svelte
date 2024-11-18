@@ -34,24 +34,7 @@
       <div class="mb-8">
         <h2 class="text-xl font-semibold mb-4">Swing Analysis</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {#each results.selected_frames as frame, index}
-            <div
-              class="border p-4 rounded-lg flex flex-col md:flex-row items-center"
-            >
-              <img
-                src={`data:image/jpeg;base64,${frame}`}
-                alt="Swing frame {index + 1}"
-                class="w-full md:w-1/2 mb-4 md:mb-0 md:mr-4"
-              />
-              <div>
-                <h3 class="text-lg font-medium mb-2">Frame {index + 1}</h3>
-                <p>
-                  {results.feedback.swing_analysis?.[`image_${index + 1}`] ||
-                    "No feedback available for this frame."}
-                </p>
-              </div>
-            </div>
-          {/each}
+          <p>{results.response}</p>
         </div>
       </div>
 
