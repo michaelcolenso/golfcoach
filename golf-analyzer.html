@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Golf Swing Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            text-align: center;
+            padding: 40px;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            background: #f8f9ff;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-section.dragging {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .api-key-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #fff9e6;
+            border-radius: 10px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .api-key-section input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        .api-key-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .processing {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .processing.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-text {
+            font-size: 1.2rem;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .poses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .pose-card {
+            background: #f8f9ff;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .pose-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .pose-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .pose-card h3 {
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+
+        .analysis-section {
+            background: #f8f9ff;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+
+        .analysis-section h2 {
+            color: #1e3c72;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        .analysis-text {
+            line-height: 1.8;
+            color: #333;
+            font-size: 1.1rem;
+            white-space: pre-wrap;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #c62828;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        .reset-btn {
+            background: #666;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: #444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⛳ Golf Swing Analyzer</h1>
+            <p>AI-Powered Analysis of Your Golf Swing</p>
+        </div>
+
+        <div class="content">
+            <!-- API Key Section -->
+            <div class="api-key-section">
+                <label for="apiKey"><strong>Gemini API Key:</strong></label>
+                <input type="password" id="apiKey" placeholder="Enter your Gemini API key (starts with 'AIza...')" />
+                <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+                    Get your free API key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>
+                </p>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="upload-section" id="uploadSection">
+                <h2>Upload Your Golf Swing Video</h2>
+                <p style="margin: 20px 0; color: #666;">
+                    Supported formats: MP4, MOV, WebM
+                </p>
+                <label for="videoFile" class="upload-btn">Choose Video File</label>
+                <input type="file" id="videoFile" accept="video/mp4,video/mov,video/webm" />
+                <p id="fileName" style="margin-top: 15px; color: #667eea; font-weight: 500;"></p>
+            </div>
+
+            <!-- Error Message -->
+            <div class="error" id="errorMsg"></div>
+
+            <!-- Processing Section -->
+            <div class="processing" id="processing">
+                <div class="spinner"></div>
+                <div class="progress-text" id="progressText">Analyzing your swing...</div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results" id="results">
+                <h2 style="color: #1e3c72; margin-bottom: 30px; font-size: 2rem;">📊 Analysis Results</h2>
+
+                <div class="poses-grid" id="posesGrid"></div>
+
+                <div class="analysis-section">
+                    <h2>🎯 Professional Analysis</h2>
+                    <div class="analysis-text" id="analysisText"></div>
+                </div>
+
+                <div style="text-align: center;">
+                    <button class="reset-btn" onclick="resetApp()">Analyze Another Swing</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Elements -->
+    <video id="videoElement" style="display: none;"></video>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        let detector = null;
+        let videoElement = null;
+        let canvas = null;
+        let ctx = null;
+
+        // Initialize on page load
+        window.addEventListener('load', async () => {
+            videoElement = document.getElementById('videoElement');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+
+            // Setup file input handler
+            document.getElementById('videoFile').addEventListener('change', handleFileSelect);
+
+            // Setup drag and drop
+            const uploadSection = document.getElementById('uploadSection');
+            uploadSection.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadSection.classList.add('dragging');
+            });
+
+            uploadSection.addEventListener('dragleave', () => {
+                uploadSection.classList.remove('dragging');
+            });
+
+            uploadSection.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadSection.classList.remove('dragging');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+        });
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        async function handleFile(file) {
+            // Validate file type
+            const validTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
+            if (!validTypes.includes(file.type)) {
+                showError('Please upload a valid video file (MP4, MOV, or WebM)');
+                return;
+            }
+
+            // Validate API key
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showError('Please enter your Gemini API key');
+                return;
+            }
+
+            document.getElementById('fileName').textContent = `Selected: ${file.name}`;
+
+            // Start processing
+            await processVideo(file, apiKey);
+        }
+
+        async function processVideo(file, apiKey) {
+            try {
+                hideError();
+                showProcessing('Loading video...');
+
+                // Load video
+                const videoUrl = URL.createObjectURL(file);
+                videoElement.src = videoUrl;
+
+                await new Promise((resolve, reject) => {
+                    videoElement.onloadedmetadata = resolve;
+                    videoElement.onerror = reject;
+                });
+
+                showProcessing('Initializing AI pose detection...');
+
+                // Initialize pose detector
+                if (!detector) {
+                    detector = await poseDetection.createDetector(
+                        poseDetection.SupportedModels.MoveNet,
+                        {
+                            modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
+                        }
+                    );
+                }
+
+                showProcessing('Analyzing video frames...');
+
+                // Extract key poses
+                const keyPoses = await extractKeyPoses();
+
+                if (keyPoses.length === 0) {
+                    throw new Error('Could not detect any poses in the video. Please ensure the golfer is clearly visible.');
+                }
+
+                showProcessing('Extracting pose images...');
+
+                // Extract images from key poses
+                const poseImages = await extractPoseImages(keyPoses);
+
+                showProcessing('Sending to AI for analysis...');
+
+                // Get analysis from Gemini
+                const analysis = await analyzeWithGemini(poseImages, apiKey);
+
+                // Display results
+                displayResults(poseImages, analysis);
+
+                // Cleanup
+                URL.revokeObjectURL(videoUrl);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError(error.message || 'An error occurred during processing');
+                hideProcessing();
+            }
+        }
+
+        async function extractKeyPoses() {
+            const duration = videoElement.duration;
+            const fps = 30; // Sample at 30 fps
+            const totalFrames = Math.floor(duration * fps);
+
+            const poses = [];
+            const frameStep = Math.max(1, Math.floor(totalFrames / 90)); // Sample ~90 frames max
+
+            videoElement.currentTime = 0;
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            for (let i = 0; i < totalFrames; i += frameStep) {
+                const time = i / fps;
+                videoElement.currentTime = time;
+
+                await new Promise(resolve => {
+                    videoElement.onseeked = resolve;
+                });
+
+                // Draw frame to canvas
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                ctx.drawImage(videoElement, 0, 0);
+
+                // Detect pose
+                const pose = await detector.estimatePoses(canvas);
+
+                if (pose && pose.length > 0 && pose[0].keypoints) {
+                    poses.push({
+                        time: time,
+                        pose: pose[0],
+                        frameNumber: i
+                    });
+                }
+
+                // Update progress
+                const progress = Math.round((i / totalFrames) * 100);
+                showProcessing(`Analyzing frames... ${progress}%`);
+            }
+
+            // Identify the three key moments
+            return identifyKeyMoments(poses);
+        }
+
+        function identifyKeyMoments(poses) {
+            if (poses.length === 0) return [];
+
+            // Helper function to get keypoint
+            const getKeypoint = (pose, name) => {
+                return pose.keypoints.find(kp => kp.name === name);
+            };
+
+            // Calculate swing metrics for each pose
+            const swingMetrics = poses.map(p => {
+                const leftWrist = getKeypoint(p.pose, 'left_wrist');
+                const rightWrist = getKeypoint(p.pose, 'right_wrist');
+                const leftShoulder = getKeypoint(p.pose, 'left_shoulder');
+                const rightShoulder = getKeypoint(p.pose, 'right_shoulder');
+                const leftHip = getKeypoint(p.pose, 'left_hip');
+                const rightHip = getKeypoint(p.pose, 'right_hip');
+
+                if (!leftWrist || !rightWrist || !leftShoulder || !rightShoulder) {
+                    return { ...p, height: 0, rotation: 0, confidence: 0 };
+                }
+
+                // Calculate wrist height (average of both wrists)
+                const wristHeight = (leftWrist.y + rightWrist.y) / 2;
+
+                // Calculate shoulder rotation (x-axis difference)
+                const shoulderRotation = Math.abs(leftShoulder.x - rightShoulder.x);
+
+                // Calculate hip position
+                const hipCenter = leftHip && rightHip ?
+                    { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 } :
+                    null;
+
+                // Calculate average confidence
+                const avgConfidence = p.pose.keypoints.reduce((sum, kp) => sum + (kp.score || 0), 0) / p.pose.keypoints.length;
+
+                return {
+                    ...p,
+                    wristHeight,
+                    shoulderRotation,
+                    hipCenter,
+                    confidence: avgConfidence
+                };
+            });
+
+            // Filter by confidence
+            const confidentPoses = swingMetrics.filter(m => m.confidence > 0.3);
+            if (confidentPoses.length === 0) return [];
+
+            // 1. SETUP: Early in swing, wrists relatively low, centered stance
+            // Look in first 30% of the swing
+            const setupCandidates = confidentPoses.slice(0, Math.floor(confidentPoses.length * 0.3));
+            const setup = setupCandidates.length > 0 ?
+                setupCandidates.reduce((prev, curr) => prev.confidence > curr.confidence ? prev : curr) :
+                confidentPoses[0];
+
+            // 2. TOP OF BACKSWING: Highest wrist position, maximum rotation
+            // Look in middle 40-70% of the swing
+            const backswingStart = Math.floor(confidentPoses.length * 0.3);
+            const backswingEnd = Math.floor(confidentPoses.length * 0.7);
+            const backswingCandidates = confidentPoses.slice(backswingStart, backswingEnd);
+
+            const topOfBackswing = backswingCandidates.length > 0 ?
+                backswingCandidates.reduce((prev, curr) => {
+                    // Prefer highest wrist position with good confidence
+                    const prevScore = prev.wristHeight * -1 * prev.confidence; // Negative because lower y = higher position
+                    const currScore = curr.wristHeight * -1 * curr.confidence;
+                    return currScore > prevScore ? curr : prev;
+                }) :
+                confidentPoses[Math.floor(confidentPoses.length * 0.5)];
+
+            // 3. IMPACT: After backswing, wrists coming down, maximum speed
+            // Look in last 40% of the swing, after the top of backswing
+            const impactStart = Math.max(
+                confidentPoses.indexOf(topOfBackswing) + 1,
+                Math.floor(confidentPoses.length * 0.6)
+            );
+            const impactCandidates = confidentPoses.slice(impactStart);
+
+            const impact = impactCandidates.length > 0 ?
+                impactCandidates.reduce((prev, curr, idx) => {
+                    // Look for wrists coming back down with good confidence
+                    // Prefer frames shortly after top of backswing
+                    const prevScore = (prev.wristHeight + prev.shoulderRotation) * prev.confidence;
+                    const currScore = (curr.wristHeight + curr.shoulderRotation) * curr.confidence;
+                    return currScore > prevScore ? curr : prev;
+                }) :
+                confidentPoses[confidentPoses.length - 1];
+
+            return [setup, topOfBackswing, impact];
+        }
+
+        async function extractPoseImages(keyPoses) {
+            const images = [];
+            const labels = ['Setup', 'Top of Backswing', 'Impact'];
+
+            for (let i = 0; i < keyPoses.length; i++) {
+                const pose = keyPoses[i];
+                videoElement.currentTime = pose.time;
+
+                await new Promise(resolve => {
+                    videoElement.onseeked = resolve;
+                });
+
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                ctx.drawImage(videoElement, 0, 0);
+
+                // Draw pose skeleton
+                drawPoseSkeleton(pose.pose);
+
+                const imageData = canvas.toDataURL('image/jpeg', 0.9);
+                images.push({
+                    label: labels[i],
+                    data: imageData,
+                    time: pose.time.toFixed(2)
+                });
+            }
+
+            return images;
+        }
+
+        function drawPoseSkeleton(pose) {
+            const keypoints = pose.keypoints;
+
+            // Draw connections
+            const connections = [
+                ['left_shoulder', 'right_shoulder'],
+                ['left_shoulder', 'left_elbow'],
+                ['left_elbow', 'left_wrist'],
+                ['right_shoulder', 'right_elbow'],
+                ['right_elbow', 'right_wrist'],
+                ['left_shoulder', 'left_hip'],
+                ['right_shoulder', 'right_hip'],
+                ['left_hip', 'right_hip'],
+                ['left_hip', 'left_knee'],
+                ['left_knee', 'left_ankle'],
+                ['right_hip', 'right_knee'],
+                ['right_knee', 'right_ankle']
+            ];
+
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3;
+
+            connections.forEach(([start, end]) => {
+                const startPoint = keypoints.find(kp => kp.name === start);
+                const endPoint = keypoints.find(kp => kp.name === end);
+
+                if (startPoint && endPoint && startPoint.score > 0.3 && endPoint.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.moveTo(startPoint.x, startPoint.y);
+                    ctx.lineTo(endPoint.x, endPoint.y);
+                    ctx.stroke();
+                }
+            });
+
+            // Draw keypoints
+            ctx.fillStyle = '#ff0000';
+            keypoints.forEach(kp => {
+                if (kp.score > 0.3) {
+                    ctx.beginPath();
+                    ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            });
+        }
+
+        async function analyzeWithGemini(poseImages, apiKey) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            // Convert images to base64 (remove data URL prefix)
+            const imageParts = poseImages.map(img => ({
+                inline_data: {
+                    mime_type: 'image/jpeg',
+                    data: img.data.split(',')[1]
+                }
+            }));
+
+            const prompt = `You are a professional golf instructor analyzing a student's golf swing.
+
+I'm providing you with three key frames from a golf swing video:
+1. Setup position
+2. Top of backswing
+3. Impact position
+
+Please analyze these three poses and provide detailed feedback on:
+
+1. **Setup Analysis**: Evaluate the stance, posture, grip position, and alignment
+2. **Backswing Analysis**: Assess the shoulder rotation, arm position, weight transfer, and club position at the top
+3. **Impact Analysis**: Examine the body position at impact, weight distribution, and club path
+
+For each position, provide:
+- What the golfer is doing well
+- What needs improvement
+- Specific actionable recommendations
+
+Keep your analysis professional, constructive, and focused on helping the golfer improve their technique. Format your response in clear sections for each pose.`;
+
+            const requestBody = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        ...imageParts
+                    ]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 2048,
+                }
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || 'Failed to get analysis from Gemini API');
+            }
+
+            const data = await response.json();
+
+            if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+                throw new Error('Invalid response from Gemini API');
+            }
+
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        function displayResults(poseImages, analysis) {
+            // Hide processing, show results
+            hideProcessing();
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('results').classList.add('active');
+
+            // Display pose images
+            const posesGrid = document.getElementById('posesGrid');
+            posesGrid.innerHTML = '';
+
+            poseImages.forEach(img => {
+                const card = document.createElement('div');
+                card.className = 'pose-card';
+                card.innerHTML = `
+                    <h3>${img.label}</h3>
+                    <img src="${img.data}" alt="${img.label}" />
+                    <p style="padding: 15px; color: #666;">Time: ${img.time}s</p>
+                `;
+                posesGrid.appendChild(card);
+            });
+
+            // Display analysis
+            document.getElementById('analysisText').textContent = analysis;
+        }
+
+        function showProcessing(message) {
+            document.getElementById('processing').classList.add('active');
+            document.getElementById('progressText').textContent = message;
+        }
+
+        function hideProcessing() {
+            document.getElementById('processing').classList.remove('active');
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = message;
+            errorMsg.classList.add('active');
+        }
+
+        function hideError() {
+            document.getElementById('errorMsg').classList.remove('active');
+        }
+
+        function resetApp() {
+            document.getElementById('results').classList.remove('active');
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('fileName').textContent = '';
+            document.getElementById('videoFile').value = '';
+        }
+    </script>
+</body>
+</html>
