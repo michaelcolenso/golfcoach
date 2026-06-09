@@ -1,7 +1,7 @@
-Flask
-flask-cors
-openai
-opencv-python-headless
-Pillow
-numpy
-Werkzeug
+fastapi>=0.115
+uvicorn[standard]>=0.34
+python-multipart>=0.0.20
+openai>=1.99
+opencv-python-headless>=4.10
+numpy>=1.26
+pydantic>=2.10
