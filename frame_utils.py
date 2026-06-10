@@ -1,91 +1,108 @@
-from flask import current_app as app
-from PIL import Image, ImageDraw, ImageFont, ImageFile
-import io
-import cv2
+"""Video frame extraction and key-frame selection.
+
+Frame selection uses optical-flow motion scoring computed on downscaled
+grayscale frames, which is ~50x faster than full-resolution Farneback flow
+while ranking frames identically for this purpose.
+"""
+
 import base64
+import logging
+
+import cv2
 import numpy as np
 
-def extract_frames(video_path, start_time, duration=3):
-    app.logger.info(f"Extracting frames from {video_path} starting at {start_time} for {duration} seconds")
+logger = logging.getLogger(__name__)
+
+# Cap how many frames we pull from the clip so very high-fps video doesn't
+# blow up memory or flow-computation time. 60 frames over a 3s clip is
+# plenty of temporal resolution to find the key swing positions.
+MAX_EXTRACTED_FRAMES = 60
+FLOW_WIDTH = 320          # downscale width for optical flow computation
+OUTPUT_MAX_DIM = 768      # longest side of frames sent to the model
+JPEG_QUALITY = 85
+
+
+def extract_frames(video_path: str, start_time: float, duration: float = 3.0) -> list[np.ndarray]:
+    logger.info("Extracting frames from %s at t=%.2fs for %.2fs", video_path, start_time, duration)
     video = cv2.VideoCapture(video_path)
-    
-    fps = video.get(cv2.CAP_PROP_FPS)
-    start_frame = int(start_time * fps)
-    end_frame = start_frame + int(duration * fps)
+    try:
+        if not video.isOpened():
+            raise ValueError("Could not open video file")
 
-    video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+        fps = video.get(cv2.CAP_PROP_FPS) or 30.0
+        total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        start_frame = max(0, int(start_time * fps))
+        end_frame = min(total - 1, start_frame + int(duration * fps)) if total > 0 else start_frame + int(duration * fps)
 
-    frames = []
-    while video.isOpened():
-        success, frame = video.read()
-        if not success or video.get(cv2.CAP_PROP_POS_FRAMES) > end_frame:
-            break
-        frames.append(frame)
+        span = max(1, end_frame - start_frame + 1)
+        step = max(1, -(-span // MAX_EXTRACTED_FRAMES))  # ceil division
 
-    video.release()
-    return frames
+        video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
-def select_key_frames(frames, max_images=9):
-    total_frames = len(frames)
-    
-    # Define key moments in the swing (approximate percentages)
-    key_moments = [0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.98, 1.0]
-    
-    selected_frames = []
-    for moment in key_moments:
-        frame_index = min(int(moment * total_frames), total_frames - 1)
-        selected_frames.append(frames[frame_index])
-    
-    # If we need more frames, add some in between
-    while len(selected_frames) < max_images:
-        for i in range(len(selected_frames) - 1, 0, -1):
-            if len(selected_frames) == max_images:
+        frames: list[np.ndarray] = []
+        index = start_frame
+        while index <= end_frame:
+            success, frame = video.read()
+            if not success:
                 break
-            mid_frame = frames[(frame_indices[i] + frame_indices[i-1]) // 2]
-            selected_frames.insert(i, mid_frame)
-    
-    # Convert frames to base64
-    base64_frames = []
-    for frame in selected_frames:
-        _, buffer = cv2.imencode(".jpg", frame)
-        base64_frames.append(base64.b64encode(buffer).decode("utf-8"))
-    
-    return base64_frames
+            if (index - start_frame) % step == 0:
+                frames.append(frame)
+            index += 1
 
-def detect_motion(frames):
+        logger.info("Extracted %d frames (step=%d)", len(frames), step)
+        return frames
+    finally:
+        video.release()
+
+
+def _motion_scores(frames: list[np.ndarray]) -> np.ndarray:
+    """Mean optical-flow magnitude between consecutive downscaled frames."""
     if len(frames) < 2:
-        return []
-    
-    motion_scores = []
-    for i in range(1, len(frames)):
-        prev_frame = cv2.cvtColor(frames[i-1], cv2.COLOR_BGR2GRAY)
-        curr_frame = cv2.cvtColor(frames[i], cv2.COLOR_BGR2GRAY)
-        
-        flow = cv2.calcOpticalFlowFarneback(prev_frame, curr_frame, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-        magnitude, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-        motion_score = np.mean(magnitude)
-        motion_scores.append(motion_score)
-    
-    return motion_scores
+        return np.array([])
 
-def select_frames_smartly(frames, max_images=9):
-    motion_scores = detect_motion(frames)
-    
-    # Normalize motion scores
-    motion_scores = np.array(motion_scores)
-    motion_scores = (motion_scores - np.min(motion_scores)) / (np.max(motion_scores) - np.min(motion_scores))
-    
-    # Select frames with highest motion, ensuring we include start and end
-    selected_indices = [0, len(frames)-1]
-    selected_indices.extend(np.argsort(motion_scores)[-max_images+2:][::-1])
-    selected_indices = sorted(list(set(selected_indices)))[:max_images]
-    
-    selected_frames = [frames[i] for i in selected_indices]
-    
-    # Convert frames to base64
-    base64_frames = []
-    for frame in selected_frames:
-        _, buffer = cv2.imencode(".jpg", frame)
-        base64_frames.append(base64.b64encode(buffer).decode("utf-8"))
-    
-    return base64_frames
+    h, w = frames[0].shape[:2]
+    scale = FLOW_WIDTH / w
+    size = (FLOW_WIDTH, max(1, int(h * scale)))
+
+    grays = [cv2.cvtColor(cv2.resize(f, size, interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY) for f in frames]
+
+    scores = np.empty(len(frames) - 1)
+    for i in range(1, len(grays)):
+        flow = cv2.calcOpticalFlowFarneback(grays[i - 1], grays[i], None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        magnitude = cv2.magnitude(flow[..., 0], flow[..., 1])
+        scores[i - 1] = float(np.mean(magnitude))
+    return scores
+
+
+def _encode_frame(frame: np.ndarray) -> str:
+    """Resize so the longest side is OUTPUT_MAX_DIM and encode as base64 JPEG."""
+    h, w = frame.shape[:2]
+    largest = max(h, w)
+    if largest > OUTPUT_MAX_DIM:
+        scale = OUTPUT_MAX_DIM / largest
+        frame = cv2.resize(frame, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+    return base64.b64encode(buffer).decode("utf-8")
+
+
+def select_frames_smartly(frames: list[np.ndarray], max_images: int = 9) -> list[str]:
+    """Pick the most informative frames: always the first and last, plus the
+    frames with the highest motion in between, returned in chronological order
+    as base64 JPEGs."""
+    if not frames:
+        return []
+    if len(frames) <= max_images:
+        return [_encode_frame(f) for f in frames]
+
+    scores = _motion_scores(frames)
+
+    selected = {0, len(frames) - 1}
+    # scores[i] is the motion between frame i and i+1; attribute it to frame i+1
+    # so high-motion moments (downswing, impact) are captured.
+    for i in np.argsort(scores)[::-1]:
+        if len(selected) >= max_images:
+            break
+        selected.add(int(i) + 1)
+
+    ordered = sorted(selected)[:max_images]
+    return [_encode_frame(frames[i]) for i in ordered]

@@ -1,79 +1,121 @@
 <script>
-  import { onMount } from "svelte";
-  import { resultsStore } from "$lib/stores/resultsStore";
   import { goto } from "$app/navigation";
+  import { fade } from "svelte/transition";
+  import { analysis } from "$lib/state/analysis.svelte.js";
+  import { phaseInfo } from "$lib/phases.js";
 
-  let results;
-  let isLoading = true;
-  let error = null;
+  const result = $derived(analysis.result);
+  const feedback = $derived(result?.feedback);
 
-  onMount(() => {
-    const unsubscribe = resultsStore.subscribe((value) => {
-      if (value) {
-        results = value;
-        isLoading = false;
-        console.log("Results:", results);
-      } else {
-        goto("/");
-      }
-    });
+  // Per-frame analysis keyed by frame index, falling back to positional order.
+  const frameCards = $derived(
+    (result?.selected_frames ?? []).map((image, i) => ({
+      image,
+      analysis: feedback?.frames?.find((f) => f.frame_index === i) ?? feedback?.frames?.[i],
+    }))
+  );
 
-    return unsubscribe;
+  $effect(() => {
+    if (!analysis.result) goto("/");
   });
+
+  function startOver() {
+    analysis.clear();
+    goto("/");
+  }
 </script>
 
-<div class="min-h-screen">
-  <div class="container mx-auto p-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-    <h1 class="text-2xl font-bold mb-4">Golf Swing Analysis Results</h1>
-
-    {#if isLoading}
-      <p>Loading results...</p>
-    {:else if error}
-      <p class="text-red-500">Error: {error}</p>
-    {:else if results}
-      <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-4">Swing Analysis</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {#each results.selected_frames as frame, index}
-            <div
-              class="border p-4 rounded-lg flex flex-col md:flex-row items-center"
-            >
-              <img
-                src={`data:image/jpeg;base64,${frame}`}
-                alt="Swing frame {index + 1}"
-                class="w-full md:w-1/2 mb-4 md:mb-0 md:mr-4"
-              />
-              <div>
-                <h3 class="text-lg font-medium mb-2">Frame {index + 1}</h3>
-                <p>
-                  {results.feedback.swing_analysis?.[`image_${index + 1}`] ||
-                    "No feedback available for this frame."}
-                </p>
-              </div>
-            </div>
-          {/each}
-        </div>
+{#if result && feedback}
+  <div in:fade={{ duration: 300 }}>
+    <div class="mb-10 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="font-display text-4xl text-zinc-50">Swing Analysis</h1>
+        <p class="mt-2 max-w-2xl leading-relaxed text-zinc-400">{feedback.overall_feedback}</p>
       </div>
+      <button
+        type="button"
+        class="rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-pine-950 shadow-lg shadow-emerald-500/25 transition hover:bg-emerald-400"
+        onclick={startOver}
+      >
+        Analyze another swing
+      </button>
+    </div>
 
-      {#if results.feedback?.recommendations && results.feedback.recommendations.length > 0}
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold mb-4">Recommendations</h2>
-          <ul class="list-disc pl-5">
-            {#each results.feedback.recommendations as rec}
-              <li class="mb-2">{rec}</li>
+    <div class="mb-10 grid gap-6 lg:grid-cols-2">
+      {#if feedback.strengths?.length}
+        <section class="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-6">
+          <h2 class="mb-4 text-lg font-semibold text-emerald-300">What you're doing well</h2>
+          <ul class="space-y-3">
+            {#each feedback.strengths as strength}
+              <li class="flex gap-3 text-sm leading-relaxed text-zinc-300">
+                <svg class="mt-0.5 size-5 shrink-0 text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />
+                </svg>
+                {strength}
+              </li>
             {/each}
           </ul>
-        </div>
+        </section>
       {/if}
 
-      {#if results.feedback?.overall_feedback}
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold mb-4">Overall Feedback</h2>
-          <p>{results.feedback.overall_feedback}</p>
-        </div>
+      {#if feedback.recommendations?.length}
+        <section class="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-6">
+          <h2 class="mb-4 text-lg font-semibold text-amber-300">What to work on</h2>
+          <ol class="space-y-3">
+            {#each feedback.recommendations as rec, i}
+              <li class="flex gap-3 text-sm leading-relaxed text-zinc-300">
+                <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-xs font-bold text-amber-300">{i + 1}</span>
+                {rec}
+              </li>
+            {/each}
+          </ol>
+        </section>
       {/if}
-    {:else}
-      <p>No results available. Please upload a video first.</p>
+    </div>
+
+    <section class="mb-10">
+      <h2 class="mb-5 text-xl font-bold text-zinc-100">Frame-by-frame breakdown</h2>
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {#each frameCards as { image, analysis: frame }, i}
+          <article class="overflow-hidden rounded-2xl border border-pine-700 bg-pine-900/70 transition hover:border-pine-600">
+            <div class="relative">
+              <img
+                src={`data:image/jpeg;base64,${image}`}
+                alt="Swing frame {i + 1}{frame ? ` — ${phaseInfo(frame.phase).label}` : ''}"
+                loading="lazy"
+                class="aspect-video w-full bg-black object-contain"
+              />
+              <span class="absolute left-3 top-3 rounded-md bg-black/60 px-2 py-0.5 font-mono text-xs text-zinc-300">#{i + 1}</span>
+              {#if frame}
+                <span class="absolute right-3 top-3 rounded-full border px-2.5 py-0.5 text-xs font-medium backdrop-blur {phaseInfo(frame.phase).classes}">
+                  {phaseInfo(frame.phase).label}
+                </span>
+              {/if}
+            </div>
+            <div class="space-y-3 p-4">
+              <p class="text-sm leading-relaxed text-zinc-300">
+                {frame?.observation ?? "No feedback available for this frame."}
+              </p>
+              {#if frame?.tip}
+                <p class="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm leading-relaxed text-emerald-200">
+                  <span class="font-semibold">Tip:</span> {frame.tip}
+                </p>
+              {/if}
+            </div>
+          </article>
+        {/each}
+      </div>
+    </section>
+
+    {#if feedback.drills?.length}
+      <section class="rounded-2xl border border-pine-700 bg-pine-900/70 p-6">
+        <h2 class="mb-4 text-lg font-semibold text-zinc-100">🏌️ Practice drills</h2>
+        <ul class="grid gap-4 md:grid-cols-3">
+          {#each feedback.drills as drill}
+            <li class="rounded-xl border border-pine-600 bg-pine-800/60 p-4 text-sm leading-relaxed text-zinc-300">{drill}</li>
+          {/each}
+        </ul>
+      </section>
     {/if}
   </div>
-</div>
+{/if}

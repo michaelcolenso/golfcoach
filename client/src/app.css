@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+
+  /* Deep fairway-green surface palette */
+  --color-pine-950: #070d0a;
+  --color-pine-900: #0b1410;
+  --color-pine-800: #122019;
+  --color-pine-700: #1b2f25;
+  --color-pine-600: #2a4537;
+}
+
+body {
+  background-color: var(--color-pine-950);
+  color: var(--color-zinc-100);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgb(16 185 129 / 0.13), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgb(16 185 129 / 0.06), transparent);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
